@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np 
 from torch.utils.data import Dataset,DataLoader
 import torchvision.transforms as T 
-from data_manager import Mars
+
 import torch.nn as nn
 import torch.nn.functional as F 
 from torchvision.datasets import ImageFolder
@@ -78,15 +78,15 @@ class shiyan(object):
             ret.append(self.index[pos])
         self.i = (self.i + self.step)%len(self.index)
         self.step += 1
+        if self.step > 10:
+            raise StopIteration
         return ret
     
 sp = shiyan()
 num = 0 
 for i in sp:
     print(i)
-    num += 1
-    if num > 10:
-        break
+    
 
 
 # In[21]:
@@ -238,7 +238,7 @@ print(train.loc[0])
 # In[ ]:
 
 
-class Duke(object):
+class DukeMTMC(object):
     
     root = '/data/DukeMTMC-reID'
     train_name_path = 'bounding_box_train'
@@ -386,10 +386,30 @@ class ImgDataset(Dataset):
     def __len__(self):
         return len(self.samples)
     
-    
+class TgtImgDataset(Dataset):
+
+    def __init__(self, samples, transform = None):
+        
+        self.samples = samples
+        self.transform = transform
+        
+    def __getitem__(self, index):
+        
+        path = self.samples['path'][index]
+        label = self.samples['id'][index]
+        camid = self.samples['camid'][index]
+        tracklet_idx = self.samples['tracklet_idx'][index]
+        
+        img = read_image(path)
+        if transform is not None:
+            img = transform(img)
+        
+        return img,label,camid,tracklet_idx
+
+    def __len__(self):
+        return len(self.samples)
 
 
-    
 class VideoDataset(Dataset):
     
     def __init__(self, samples, transform, seq_len, is_video):
@@ -414,18 +434,20 @@ class VideoDataset(Dataset):
         tracklet_idx = []
         
         for index in indices:
-            img_path = frames['path'][index]
-                img = read_image(img_path)
-                if self.transform is not None:
-                    img = self.transform(img)
-                img = img.unsqueeze(0)
-                imgs.append(img)
+            img_path = frames['path'].iloc[index]
+            img = read_image(img_path)
+            if self.transform is not None:
+                img = self.transform(img)
+            img = img.unsqueeze(0)
+            imgs.append(img)
             imgs = torch.cat(imgs, dim=0)
             pid.append(frames['pid'])
             
         return imgs, pid, camid
     
-    def 
+    def __len__（self）:
+        return len(set(self.samples['tracklet_idx']))
+
 
 class GlobalVar(object):
     def __init__(self,opt):
@@ -433,7 +455,31 @@ class GlobalVar(object):
         self.epoch_now = 0
         self.src_reid_epoch_max = 200
         self.tgt_part_batch_idx = 0
+        self.batch_size_sum = 64
+        self._tgt_batch_size = 32
+        self.seq_len = 4
+    
+    @property
+    def tgt_batch_size(self):
+        return self._tgt_batch_size
+    
+    @tgt_batch_size.setter
+    def tgt_batch_size(self, value):
+
+        if value*self.seq_len > self.batch_size_sum:
+            self._tgt_batch_size = (self.batch_size_sum// self.seq_len)*self.seq_len
+        elif value < 0:
+            self._tgt_batch_size = 0
+        else:
+            self._tgt_batch_size = value
         
+    
+    @property
+    def src_batch_size(self):
+        return self.batch_size_sum - self._tgt_batch_size*self.seq_len
+
+        
+
     def step(self):
         pass
     
@@ -442,10 +488,34 @@ class GlobalVar(object):
     
     def get_global_var(self):
         pass
-    
+
+from collections import defaultdict
+class RandomTrackletBatchSampler(Sampler):
+    def __init__(self,dataset,glob_var):
+
+        self.dataset = dataset 
+        self.glob_var = glob_var
+        self.index_dict = defaultdict(list)
+        self.tracklets = list(set(self.dataset['tracklet_idx']))
+        self.num_tracklets = len(tracklets)
+
+    def __len__(self):
+        return self.num_tracklets
+
+    def __iter__(self):
+        self.indices = np.random.randperm(len(self.tracklets)).numpy().tolist()
+        self.index = 0
+        return self
+
+    def __next__(self):
         
-
-
+        k = self.index + self.glob_var.tgt_batch_size
+        if k >= self.num_tracklets:
+            raise StopIteration
+        self.index = k
+        return self.indices[self.index:k]
+        
+        
 # In[ ]:
 
 
@@ -456,7 +526,7 @@ class RandomIdentitySampler(Sampler):
         self.k = k
         self.index_dic = defaultdict(list)
         for index in range(len(data_source)):
-            self.index_dic[datasource.loc[index]['id']].append(index)
+            self.index_dic[datasource.loc[index]['pid']].append(index)
         self.pids = list(self.index_dic.keys())
         self.num_pids = len(self.pids)
 
@@ -498,7 +568,9 @@ help(DataLoader)
 
 
 # In[ ]:
+help(np.random.randperm)
 
 
 
 
+# %%
