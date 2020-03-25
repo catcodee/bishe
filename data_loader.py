@@ -29,12 +29,12 @@ class ImgDataset(Dataset):
     def __getitem__(self, index):
 
         path = self.samples['path'][index]
-        label = self.samples['id'][index]
+        label = self.samples['pid'][index]
         camid = self.samples['camid'][index]
 
         img = read_image(path)
-        if transform:
-            img = transform(img)
+        if self.transform:
+            img = self.transform(img)
 
         return img, label, camid, path 
 
@@ -52,13 +52,13 @@ class TgtImgDataset(Dataset):
     def __getitem__(self, index):
 
         path = self.samples['path'][index]
-        label = self.samples['id'][index]
+        label = self.samples['pid'][index]
         camid = self.samples['camid'][index]
         tracklet_idx = self.samples['tracklet_idx'][index]
 
         img = read_image(path)
-        if transform is not None:
-            img = transform(img)
+        if self.transform is not None:
+            img = self.transform(img)
 
         return img, label, camid, tracklet_idx,path
 

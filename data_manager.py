@@ -19,8 +19,8 @@ class Mars(object):
     Args:
         min_seq_len (int): tracklet with length shorter than this value will be discarded (default: 0).
     """
-    #root = '/data/MARS'
-    root = 'F:/Dataset/Mars'
+    root = '/data/MARS'
+    #root = 'F:/Dataset/Mars'
     train_name_path = osp.join(root, 'info/train_name.txt')
     test_name_path = osp.join(root, 'info/test_name.txt')
     track_train_info_path = osp.join(root, 'info/tracks_train_info.mat')
@@ -139,8 +139,8 @@ class Mars(object):
 
 class DukeMTMC(object):
 
-    #root = '/data/DukeMTMC-reID'
-    root ='F:/Dataset/DukeMTMC-reID/DukeMTMC-reID'
+    root = '/data/DukeMTMC-reID'
+    #root ='F:/Dataset/DukeMTMC-reID/DukeMTMC-reID'
     train_name_path = 'bounding_box_train'
     test_name_path = 'bounding_box_test'
     query_name_path = 'query'
@@ -164,7 +164,7 @@ class DukeMTMC(object):
         train_all = pd.concat(
             [self.train, self.gallery, self.query], ignore_index=True)
 
-        pids = [int(path.replace('\\', '/').split('/')[-1][:4])
+        pids = [int(path.split('/')[-1][:4])
                 for path in train_all['path']]
         pids = list(set(pids))
 
@@ -172,10 +172,10 @@ class DukeMTMC(object):
             pid2label = {pid: label for label, pid in enumerate(pids)}
 
         for i in range(len(train_all)):
-            pid = int(train_all['path'][i].replace('\\','/').split('/')[-1][:4])
+            pid = int(train_all.loc[i,'path'].split('/')[-1][:4])
             if relabel:
                 pid = pid2label[pid]
-            train_all['pid'][i] = pid
+            train_all.loc[i,'pid'] = pid
 
         return train_all
 
@@ -197,3 +197,6 @@ class DukeMTMC(object):
             dataset.append([img_path, pid, camid])
 
         return pd.DataFrame(dataset, columns=['path', 'pid', 'camid'])
+
+if __name__ == '__main__':
+    duke = DukeMTMC()
