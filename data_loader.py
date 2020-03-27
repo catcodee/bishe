@@ -4,6 +4,21 @@ import numpy as np
 import torch
 
 
+def tgt_collate_fn(batch):
+    imgs = []
+    pids = []
+    camids = []
+    tracklets = []
+    paths = []
+    for img, pid, camid, tracklet, path in batch:
+        imgs += [img.unsqueeze()]
+        pids += pid
+        camids += camid
+        tracklets += tracklet
+        paths += path
+    imgs = torch.cat(imgs, dim=0)
+    return imgs, pids, camids, tracklets, paths
+    
 def read_image(img_path):
     """Keep reading image until succeed.
     This can avoid IOError incurred by heavy IO process."""
@@ -86,9 +101,9 @@ class VideoDataset(Dataset):
             indices = list(range(num))[start:end]
 
         imgs = []
-        pids = []
-        camids = []
-        tracklet_idxs = []
+        pids = [frames['pid'].iloc[0]]*self.seq_len
+        camids = [frames['camid'].iloc[0]]*self.seq_len
+        tracklet_idxs = [index]*self.seq_len
         paths = []
 
         for index in indices:
@@ -98,8 +113,6 @@ class VideoDataset(Dataset):
                 img = self.transform(img)
             img = img.unsqueeze(0)
             imgs.append(img)
-            pids.append(frames['pid'].iloc[index])
-            tracklet_idxs.append(index)
             paths.append(img_path)
         imgs = torch.cat(imgs, dim=0)
         return imgs, pids, camids, tracklet_idxs,paths
