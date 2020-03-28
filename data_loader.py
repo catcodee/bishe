@@ -75,7 +75,7 @@ class TgtImgDataset(Dataset):
         if self.transform is not None:
             img = self.transform(img)
 
-        return img, label, camid, tracklet_idx,path
+        return img, label, camid, path, tracklet_idx
 
     def __len__(self):
         return len(self.samples)
@@ -115,6 +115,6 @@ class VideoDataset(Dataset):
             imgs.append(img)
             paths.append(img_path)
         imgs = torch.cat(imgs, dim=0)
-        return imgs, pids, camids, tracklet_idxs,paths
+        return imgs, pids, camids, paths,tracklet_idxs
     def __len__(self):
         return len(set(self.samples['tracklet_idx']))
