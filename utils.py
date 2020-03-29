@@ -1,13 +1,47 @@
+from data_manager import Mars, DukeMTMC
+from torchvision import transforms as T
+from data_manager import Mars, DukeMTMC
+from torchvision import transforms as T
+from model import FeatureExtractor
 
 class GlobalVar(object):
     def __init__(self):
 
-        self.epoch_now = 0
-        self.src_reid_epoch_max = 200
-        self.tgt_part_batch_idx = 0
-        self.batch_size_sum = 64
         self._tgt_batch_size = 8
         self.seq_len = 4
+        self.batch_size_sum = 64
+        self.num_parts = 6
+        self.gpu_ids = [3]
+        self.feature_extractor = FeatureExtractor(self.num_parts)
+        if len(self.gpu_ids > 0):
+            self.use_gpu = True
+            torch.cuda.set_device(self.gpu_ids)
+            self.feature_extractor = nn.DataParallel(
+                self.feature_extractor, self.gpu_ids)
+        else:
+            self.use_gpu = False
+
+        self.save_path = './Logs'
+        self.src_data = DukeMTMC()
+        self.tgt_data = Mars()
+
+        self.train_transfrom = T.Compose(
+            [
+                T.Resize((256, 128)),
+                T.RandomHorizontalFlip(),
+                T.ToTensor(),
+                T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            ]
+        )
+
+        self.test_transform = T.Compose(
+            [
+                T.Resize((256, 128)),
+                T.ToTensor(),
+                T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            ]
+        )
+
 
     @property
     def tgt_batch_size(self):
@@ -31,5 +65,5 @@ class GlobalVar(object):
     def step(self):
         pass
 
-    def set_global_var(self,name,value):
-        setattr(self,name,value)
+    def set_global_var(self, name, value):
+        setattr(self, name, value)
