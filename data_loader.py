@@ -10,14 +10,16 @@ def tgt_collate_fn(batch):
     camids = []
     tracklets = []
     paths = []
-    for img, pid, camid, tracklet, path in batch:
-        imgs += [img.unsqueeze()]
+    for img, pid, camid, path, tracklet in batch:
+        imgs += [img.unsqueeze(dim=0)]
         pids += pid
         camids += camid
         tracklets += tracklet
         paths += path
     imgs = torch.cat(imgs, dim=0)
-    return imgs, pids, camids, tracklets, paths
+    b, t, c, h, w = imgs.shape
+    imgs = imgs.view(b*t, c, h, w)
+    return imgs, torch.IntTensor(pids), torch.IntTensor(camids), paths, torch.IntTensor(tracklets)
     
 def read_image(img_path):
     """Keep reading image until succeed.
