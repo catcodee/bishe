@@ -1,9 +1,33 @@
+import torch.backends.cudnn as cudnn
 from data_manager import Mars, DukeMTMC
-from torchvision import transforms as T
-from data_manager import Mars, DukeMTMC
-from torchvision import transforms as T
-from model import FeatureExtractor
+import transforms as T
+from models import FeatureExtractor
+from torch.utils.tensorboard import SummaryWriter
+from torch import nn
+import torch
+import os
 
+class AverageMeter(object):
+    """Computes and stores the average and current value.
+       
+       Code imported from https://github.com/pytorch/examples/blob/master/imagenet/main.py#L247-L262
+    """
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+        
 class GlobalVar(object):
     def __init__(self):
 
@@ -11,34 +35,39 @@ class GlobalVar(object):
         self.seq_len = 4
         self.batch_size_sum = 64
         self.num_parts = 6
-        self.gpu_ids = [3]
+        self.gpu_ids = '3'
         self.feature_extractor = FeatureExtractor(self.num_parts)
-        if len(self.gpu_ids > 0):
+        if len(self.gpu_ids) > 0:
             self.use_gpu = True
-            torch.cuda.set_device(self.gpu_ids)
-            self.feature_extractor = nn.DataParallel(
-                self.feature_extractor, self.gpu_ids)
+
+            cudnn.benchmark = True
+            self.feature_extractor = self.feature_extractor.cuda(3)
         else:
             self.use_gpu = False
 
-        self.save_path = './Logs'
+        self.save_path = './save'
+        self.logs_dir = './logs'
+        self.logs = SummaryWriter(self.logs_dir)
+
         self.src_data = DukeMTMC()
         self.tgt_data = Mars()
 
-        self.train_transfrom = T.Compose(
-            [
-                T.Resize((256, 128)),
-                T.RandomHorizontalFlip(),
-                T.ToTensor(),
-                T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-            ]
-        )
+        transform = T.Compose([
+            T.Resize([256, 128]),
+            T.RandomHorizontalFlip(p=0.5),
+            T.Pad(10),
+            T.RandomCrop([256, 128]),
+            T.ToTensor(),
+            normalize_transform,
+            RandomErasing(probability=0.5)
+        ])
 
         self.test_transform = T.Compose(
             [
-                T.Resize((256, 128)),
+                T.Resize((384, 128)),
                 T.ToTensor(),
-                T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+                T.Normalize(mean=[0.485, 0.456, 0.406],
+                            std=[0.229, 0.224, 0.225])
             ]
         )
 

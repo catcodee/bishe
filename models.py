@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 from torch.nn import init
+import torch
 
 def weights_init_kaiming(m):
     classname = m.__class__.__name__
@@ -65,15 +66,20 @@ class ClassBlock(nn.Module):
 
 
 class FeatureExtractor(nn.Module):
-    def __init__(self, num_parts):
+    def __init__(self, num_parts,mode='PCB'):
 
         super(FeatureExtractor, self).__init__()
         self.num_parts = num_parts
         resnet50 = models.resnet50(pretrained=True)
+        if mode == 'PCB':
+            resnet50.layer4[0].downsample[0].stride = (1, 1)
+            resnet50.layer4[0].conv2.stride = (1, 1)
+
         self.base = nn.Sequential(*list(resnet50.children())[:-2])
-        self.pcb_pool = nn.AdaptiveAvgPool2d((num_parts, 1))
-        self.half_pool = nn.AdaptiveAvgPool2d((2, 1))
+        self.pcb_pool = nn.AdaptiveMaxPool2d((num_parts, 1))
+        self.half_pool = nn.AdaptiveMaxPool2d((2, 1))
         self.global_pool = nn.AdaptiveAvgPool2d(1)
+        self.mode = mode
 
     def forward(self, x):
 
@@ -82,14 +88,11 @@ class FeatureExtractor(nn.Module):
         glob = self.global_pool(x)
         glob = glob.view(glob.size(0), glob.size(1), glob.size(2))
 
-        if self.num_parts > 0:
+        if self.num_parts > 0 and (mode in ['PCB','PAP']:
 
-            halfs = self.half_pool(x)
-            halfs = halfs.view(halfs.size(0), halfs.size(1), halfs.size(2))
 
             stripes = self.pcb_pool(x)
-            stripes = stripes.view(stripes.size(
-                0), stripes.size(1), stripes.size(2))
+            stripes = stripes.view(stripes.size(0), stripes.size(1), stripes.size(2))
 
             features = torch.cat([glob, halfs, stripes], dim=2)
 
@@ -100,20 +103,21 @@ class FeatureExtractor(nn.Module):
 
 
 class SrcReidModel(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_parts, num_classes,mode='PCB'):
         super(SrcReidModel, self).__init__()
-        self.num_parts = feature_extractor.num_parts
+        self.num_parts = num_parts
         self.classifier1 = ClassBlock(
-            2048, class_num=num_classes, num_bottleneck=512, droprate=0.5)
+            2048, class_num=num_classes, num_bottleneck=512, droprate=-1)
         if self.num_parts > 0:
+            if 
             for i in range(self.num_parts+2):
                 setattr(self, 'classifier'+str(i+2), 
-                        ClassBlock(2048,class_num=num_classes, num_bottleneck=256, droprate=0.5))
+                        ClassBlock(2048,class_num=num_classes, num_bottleneck=256, droprate=-1))
 
     def forward(self, x):
 
         y = []
-        for i in range(features.size(2)):
+        for i in range(x.size(2)):
             y.append(getattr(self, 'classifier'+str(i+1))(x[:, :, i]))
 
         return y

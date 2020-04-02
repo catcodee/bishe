@@ -85,38 +85,64 @@ class TgtImgDataset(Dataset):
 
 class VideoDataset(Dataset):
 
-    def __init__(self, samples, transform, seq_len):
+    def __init__(self, samples, sampler = 'random',transform = None, seq_len = 4):
 
         self.samples = samples
         self.transform = transform
         self.seq_len = seq_len
+        self.sampler = sampler
 
     def __getitem__(self, index):
 
         frames = self.samples[self.samples['tracklet_idx'] == index]
         num = len(frames)
-        if num < self.seq_len:
-            indices = list(range(num)) + [num-1]*(self.seq_len-num)
-        else:
-            start = np.random.randint(num-self.seq_len)
-            end = start + self.seq_len
-            indices = list(range(num))[start:end]
+        if self.sampler == 'random':
+            if num < self.seq_len:
+                indices = list(range(num)) + [num-1]*(self.seq_len-num)
+            else:
+                start = np.random.randint(num-self.seq_len)
+                end = start + self.seq_len
+                indices = list(range(num))[start:end]
 
-        imgs = []
-        pids = [frames['pid'].iloc[0]]*self.seq_len
-        camids = [frames['camid'].iloc[0]]*self.seq_len
-        tracklet_idxs = [index]*self.seq_len
-        paths = []
+            imgs = []
+            pids = [frames['pid'].iloc[0]]*self.seq_len
+            camids = [frames['camid'].iloc[0]]*self.seq_len
+            tracklet_idxs = [index]*self.seq_len
+            paths = []
 
-        for index in indices:
-            img_path = frames['path'].iloc[index]
-            img = read_image(img_path)
-            if self.transform is not None:
-                img = self.transform(img)
-            img = img.unsqueeze(0)
-            imgs.append(img)
-            paths.append(img_path)
-        imgs = torch.cat(imgs, dim=0)
+            for index in indices:
+                img_path = frames['path'].iloc[index]
+                img = read_image(img_path)
+                if self.transform is not None:
+                    img = self.transform(img)
+                img = img.unsqueeze(0)
+                imgs.append(img)
+                paths.append(img_path)
+            imgs = torch.cat(imgs, dim=0)
+            
+        elif self.sampler == 'dense':
+            if num < self.seq_len:
+                indices = list(range(num)) + [num-1]*(self.seq_len-num)
+            else:
+
+                length = num - num%self.seq_len
+                indices = list(range(num))[0:length]
+            imgs = []
+            pids = [frames['pid'].iloc[0]]*length
+            camids = [frames['camid'].iloc[0]]*length
+            tracklet_idxs = [index]*end
+            paths = []
+
+            for index in indices:
+                img_path = frames['path'].iloc[index]
+                img = read_image(img_path)
+                if self.transform is not None:
+                    img = self.transform(img)
+                img = img.unsqueeze(0)
+                imgs.append(img)
+                paths.append(img_path)
+            imgs = torch.cat(imgs, dim=0)
+
         return imgs, pids, camids, paths,tracklet_idxs
     def __len__(self):
         return len(set(self.samples['tracklet_idx']))
